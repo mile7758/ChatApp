@@ -18,9 +18,9 @@ interface Conversation {
   lastMessage: string;
   timestamp: string;
   messages: Message[];
+  isTyping: boolean;
 }
 
-// 本地存储键名
 const STORAGE_KEY_CONVERSATIONS = 'chat_conversations';
 const STORAGE_KEY_CURRENT_CONVERSATION = 'current_conversation_id';
 
@@ -31,7 +31,6 @@ const ChatApp = () => {
   const [currentConversationId, setCurrentConversationId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +51,8 @@ const ChatApp = () => {
       title: '新对话',
       lastMessage: '',
       timestamp: new Date().toISOString(),
-      messages: []
+      messages: [],
+      isTyping: false
     };
 
     setConversations(prev => [newConversation, ...prev]);
@@ -109,7 +109,7 @@ const ChatApp = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages, currentConversation?.isTyping]);
 
   const typeMessage = (messageId: string, fullContent: string) => {
     let currentIndex = 0;
@@ -120,7 +120,6 @@ const ChatApp = () => {
         const currentContent = fullContent.substring(0, currentIndex);
 
         if (!messageAdded) {
-          // 第一次执行时，添加新的助手消息
           setMessages(prev => [...prev, {
             id: messageId,
             content: currentContent,
@@ -147,7 +146,6 @@ const ChatApp = () => {
 
           messageAdded = true;
         } else {
-          // 后续执行时，更新已有消息内容
           setMessages(prev => prev.map(msg =>
             msg.id === messageId
               ? { ...msg, content: currentContent }
@@ -174,7 +172,12 @@ const ChatApp = () => {
         currentIndex++;
       } else {
         clearInterval(typeInterval);
-        setIsTyping(false);
+        setConversations(prev => prev.map(conv => {
+          if (conv.conversationId === currentConversationId) {
+            return { ...conv, isTyping: false };
+          }
+          return conv;
+        }));
       }
     }, 20);
 
@@ -235,7 +238,8 @@ const ChatApp = () => {
         title: inputValue.trim().substring(0, 20) + (inputValue.trim().length > 20 ? '...' : ''),
         lastMessage: inputValue.trim(),
         timestamp: new Date().toISOString(),
-        messages: []
+        messages: [],
+        isTyping: false
       };
       setConversations(prev => [newConversation, ...prev]);
       setCurrentConversationId(conversationId);
@@ -266,9 +270,14 @@ const ChatApp = () => {
 
     const messageToSend = inputValue.trim();
     setInputValue('');
-    setIsTyping(true);
+      setConversations(prev => prev.map(conv => {
+        if (conv.conversationId === conversationId) {
+          return { ...conv, isTyping: true };
+        }
+        return conv;
+      }));
 
-    try {
+      try {
       const historyToSend = [...messages].slice(-5).map(msg => ({
         sender: msg.sender,
         content: msg.content
@@ -297,7 +306,6 @@ const ChatApp = () => {
 
         updateConversationLastMessage(conversationId, result.content);
       } else if (result && result.type === 'error') {
-        setIsTyping(false);
         const errorMessage = result.error || '抱歉，我暂时无法回复。请稍后再试。';
 
         const updatedMessages = messages.map(msg =>
@@ -313,13 +321,13 @@ const ChatApp = () => {
               ...conv,
               messages: updatedMessages,
               lastMessage: errorMessage,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              isTyping: false
             };
           }
           return conv;
         }));
       } else {
-        setIsTyping(false);
         const errorMessage = '抱歉，我暂时无法回复。请稍后再试。';
 
         const updatedMessages = messages.map(msg =>
@@ -335,7 +343,8 @@ const ChatApp = () => {
               ...conv,
               messages: updatedMessages,
               lastMessage: errorMessage,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              isTyping: false
             };
           }
           return conv;
@@ -343,7 +352,6 @@ const ChatApp = () => {
       }
     } catch (error) {
       console.error('发送消息失败:', error);
-      setIsTyping(false);
       const errorMessage = '抱歉，发送消息失败。请稍后再试。';
 
       const updatedMessages = messages.map(msg =>
@@ -359,7 +367,8 @@ const ChatApp = () => {
             ...conv,
             messages: updatedMessages,
             lastMessage: errorMessage,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            isTyping: false
           };
         }
         return conv;
@@ -398,7 +407,8 @@ const ChatApp = () => {
             ...conv,
             messages: [],
             lastMessage: '',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            isTyping: false
           };
         }
         return conv;
@@ -511,7 +521,7 @@ const ChatApp = () => {
               </div>
             ))
           )}
-          {isTyping && (
+          {currentConversation?.isTyping && (
             <div className="message assistant-message">
               <div className="message-bubble assistant typing">
                 <div className="typing-indicator">
@@ -531,12 +541,12 @@ const ChatApp = () => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="输入你的问题或想法..."
-            disabled={isTyping}
+            disabled={currentConversation?.isTyping}
           />
           <button
             className="send-button"
             onClick={handleSend}
-            disabled={isTyping || !inputValue.trim()}
+            disabled={(currentConversation?.isTyping || false) || !inputValue.trim()}
           >
             发送
           </button>

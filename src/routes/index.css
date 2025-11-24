@@ -412,6 +412,32 @@ p {
   background: transparent;
 }
 
+/* 自定义滚动条样式 */
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a4190 100%);
+}
+
+/* Firefox滚动条样式 */
+.chat-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.8) rgba(241, 245, 249, 0.5);
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -569,6 +595,32 @@ p {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* 输入框自定义滚动条样式 */
+.chat-input::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 3px;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a4190 100%);
+}
+
+/* Firefox输入框滚动条样式 */
+.chat-input {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 126, 234, 0.8) rgba(241, 245, 249, 0.5);
 }
 
 .chat-input:valid {

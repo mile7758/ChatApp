@@ -75,7 +75,6 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
     volcanoMessages.push({ role: 'user', content: prompt });
     console.log('处理消息:', { systemPrompt: SYSTEM_PROMPT, messages: volcanoMessages });
 
-    // 检查是否是搜索请求（从用户直接发送）
     const searchMatch = prompt.match(/<search>(.*?)<\/search>/i);
     if (searchMatch) {
       const searchQuery = searchMatch[1];
@@ -83,30 +82,23 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
       try {
         const searchResult = await tavilyClient.search(searchQuery, 5, 'advanced');
 
-        // 格式化搜索结果
-        let formattedResult = `🔍 **搜索结果**\n\n`;
+        let formattedResult = ``;
 
-        // 显示清晰的摘要
         if (searchResult.answer) {
           formattedResult += `📋 **摘要**：${searchResult.answer}\n\n`;
         }
-
-        // 列出关键资源
         formattedResult += `📚 **相关资源**\n\n`;
-
-        // 限制只显示前5条结果
         const topResults = searchResult.results.slice(0, 5);
         topResults.forEach((result, index) => {
-          // 提取关键信息，避免过长内容
           const keyInfo = result.content
-            .replace(/\n+/g, '\n') // 保留有意义的换行
-            .replace(/\s+/g, ' ') // 合并连续空格
+            .replace(/\n+/g, '\n')
+            .replace(/\s+/g, ' ')
             .trim()
-            .substring(0, 150); // 限制关键信息长度
+            .substring(0, 150);
 
-          formattedResult += `${index + 1}. **${result.title}**\n`;
-          formattedResult += `   🔗 ${result.url}\n`;
-          formattedResult += `   💡 ${keyInfo}...\n`;
+          formattedResult += `${index + 1}. **${result.title}**\n\n`;
+          formattedResult += `   🔗 ${result.url}\n\n`;
+          formattedResult += `   💡 ${keyInfo}...\n\n`;
           formattedResult += `\n`;
         });
 
@@ -152,29 +144,17 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
         }
       );
 
-      // 启动流式请求 异步
       streamPromise.catch(() => {});
     });
 
     const maxWaitTime = 60000;
     const startTime = Date.now();
 
-    while (!isDone || chunkQueue.length > 0) {
+    while (!isDone) {
       if (Date.now() - startTime > maxWaitTime) {
         throw new Error('响应超时');
       }
-
-      if (chunkQueue.length > 0) {
-        const chunk = chunkQueue.shift()!;
-        for (let i = 0; i < chunk.length; i++) {
-          yield chunk[i];
-          await new Promise(resolve => setTimeout(resolve, 20));
-        }
-      } else {
-        if (!isDone) {
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-      }
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     try {
@@ -185,41 +165,41 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
       throw error;
     }
 
-    // 检查模型响应是否包含搜索请求
     const fullResponseText = fullResponse.join('');
     const modelSearchMatch = fullResponseText.match(/<search>(.*?)<\/search>/i);
 
+    let cleanedResponseText = fullResponseText.replace(/<search>(.*?)<\/search>/gi, '');
+    let formattedResponse = cleanedResponseText;
+    formattedResponse = formattedResponse.replace(/目标设定：/g, '## 🎯 目标设定\n\n');
+    formattedResponse = formattedResponse.replace(/回答：/g, '\n\n## 💡 回答\n\n');
+    formattedResponse = formattedResponse.replace(/(\n|^)\d+\. /g, '$1- ');
+    for (const char of formattedResponse) {
+      yield char;
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+
     if (modelSearchMatch) {
       const searchQuery = modelSearchMatch[1];
-      yield '\n\n正在搜索相关信息...\n\n';
+      yield '\n\n## 🔍 联网搜索结果\n\n';
 
       try {
           const searchResult = await tavilyClient.search(searchQuery, 5, 'advanced');
-
-          // 格式化搜索结果
-          let formattedResult = `🔍 **搜索结果**\n\n`;
-
-          // 显示清晰的摘要
+          let formattedResult = ``;
           if (searchResult.answer) {
             formattedResult += `📋 **摘要**：${searchResult.answer}\n\n`;
           }
-
-          // 列出关键资源
           formattedResult += `📚 **相关资源**\n\n`;
-
-          // 限制只显示前5条结果
           const topResults = searchResult.results.slice(0, 5);
           topResults.forEach((result, index) => {
-            // 提取关键信息，避免过长内容
             const keyInfo = result.content
-              .replace(/\n+/g, '\n') // 保留有意义的换行
-              .replace(/\s+/g, ' ') // 合并连续空格
+              .replace(/\n+/g, '\n')
+              .replace(/\s+/g, ' ')
               .trim()
-              .substring(0, 150); // 限制关键信息长度
+              .substring(0, 150);
 
-            formattedResult += `${index + 1}. **${result.title}**\n`;
-            formattedResult += `   🔗 ${result.url}\n`;
-            formattedResult += `   💡 ${keyInfo}...\n`;
+            formattedResult += `${index + 1}. **${result.title}**\n\n`;
+            formattedResult += `   🔗 ${result.url}\n\n`;
+            formattedResult += `   💡 ${keyInfo}...\n\n`;
             formattedResult += `\n`;
           });
 
@@ -286,9 +266,9 @@ export const get = async ({
     const responseGenerator = volcanoModelResponse(prompt, history);
 
     try {
-      for await (const chunk of responseGenerator) {
-        chunks.push(chunk);
-      }
+       for await (const chunk of responseGenerator) {
+         chunks.push(chunk);
+        }
 
       const fullResponse = chunks.join('').replace(/<search>(.*?)<\/search>/gi, '');
 
