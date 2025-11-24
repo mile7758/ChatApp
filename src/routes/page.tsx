@@ -1,6 +1,7 @@
 import { Helmet } from '@modern-js/runtime/head';
 import { useState, useRef, useEffect } from 'react';
 import { get as chatApi } from '@api/chat';
+import { marked } from 'marked';
 import './index.css';
 
 
@@ -57,6 +58,7 @@ const ChatApp = () => {
     setConversations(prev => [newConversation, ...prev]);
     setCurrentConversationId(newConversationId);
     setMessages([]);
+    setInputValue('');
   };
 
   useEffect(() => {
@@ -111,30 +113,63 @@ const ChatApp = () => {
 
   const typeMessage = (messageId: string, fullContent: string) => {
     let currentIndex = 0;
+    let messageAdded = false;
 
     const typeInterval = setInterval(() => {
       if (currentIndex <= fullContent.length) {
         const currentContent = fullContent.substring(0, currentIndex);
 
-        setMessages(prev => prev.map(msg =>
-          msg.id === messageId
-            ? { ...msg, content: currentContent }
-            : msg
-        ));
+        if (!messageAdded) {
+          // 第一次执行时，添加新的助手消息
+          setMessages(prev => [...prev, {
+            id: messageId,
+            content: currentContent,
+            sender: 'assistant',
+            timestamp: new Date().toISOString()
+          }]);
 
-        setConversations(prev => prev.map(conv => {
-          if (conv.conversationId === currentConversationId) {
-            return {
-              ...conv,
-              messages: conv.messages.map(msg =>
-                msg.id === messageId
-                  ? { ...msg, content: currentContent }
-                  : msg
-              )
-            };
-          }
-          return conv;
-        }));
+          setConversations(prev => prev.map(conv => {
+            if (conv.conversationId === currentConversationId) {
+              return {
+                ...conv,
+                messages: [...conv.messages, {
+                  id: messageId,
+                  content: currentContent,
+                  sender: 'assistant',
+                  timestamp: new Date().toISOString()
+                }],
+                lastMessage: currentContent,
+                timestamp: new Date().toISOString()
+              };
+            }
+            return conv;
+          }));
+
+          messageAdded = true;
+        } else {
+          // 后续执行时，更新已有消息内容
+          setMessages(prev => prev.map(msg =>
+            msg.id === messageId
+              ? { ...msg, content: currentContent }
+              : msg
+          ));
+
+          setConversations(prev => prev.map(conv => {
+            if (conv.conversationId === currentConversationId) {
+              return {
+                ...conv,
+                messages: conv.messages.map(msg =>
+                  msg.id === messageId
+                    ? { ...msg, content: currentContent }
+                    : msg
+                ),
+                lastMessage: currentContent,
+                timestamp: new Date().toISOString()
+              };
+            }
+            return conv;
+          }));
+        }
 
         currentIndex++;
       } else {
@@ -214,14 +249,7 @@ const ChatApp = () => {
     };
 
     const assistantMessageId = `msg_${Date.now()}_assistant`;
-    const initialAssistantMessage: Message = {
-      id: assistantMessageId,
-      content: '',
-      sender: 'assistant',
-      timestamp: new Date().toISOString(),
-    };
-
-    const newMessages = [...messages, userMessage, initialAssistantMessage];
+    const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
     setConversations(prev => prev.map(conv => {
@@ -475,7 +503,7 @@ const ChatApp = () => {
                 className={`message ${message.sender === 'user' ? 'user-message' : 'assistant-message'}`}
               >
                 <div className={`message-bubble ${message.sender}`}>
-                  <p>{message.content}</p>
+                  <div dangerouslySetInnerHTML={{ __html: marked.parse(message.content) }} />
                   <span className="message-time">
                     {new Date(message.timestamp).toLocaleTimeString()}
                   </span>

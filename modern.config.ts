@@ -5,7 +5,7 @@ import { bffPlugin } from '@modern-js/plugin-bff';
 export default defineConfig({
   source: {
     globalVars: {
-      allowList: ['ARK_API_KEY', 'ARK_MODEL']
+      allowList: ['ARK_API_KEY', 'ARK_MODEL', 'TAVILY_API_KEY']
     }
   },
   runtime: {

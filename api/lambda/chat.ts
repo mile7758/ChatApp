@@ -4,6 +4,7 @@ import {
   getConversationById,
   updateConversation
 } from './mongodb/conversationService';
+import { tavilyClient } from './tavilyClient';
 
 // 兴趣教练的system prompt
 const SYSTEM_PROMPT = `角色:
@@ -18,6 +19,12 @@ const SYSTEM_PROMPT = `角色:
 - 制定适合用户需求的方案目标。
 - 提供清晰、简洁且实用的建议。
 - 可以使用联网搜索工具，获取更多的信息。
+
+搜索工具使用规则:
+- 当需要最新、最准确的信息时，可以使用搜索工具
+- 当对某个主题的信息不确定或需要验证时，可以使用搜索工具
+- 使用格式：<search>查询词</search>，例如：<search>2024年最流行的编程学习资源</search>
+- 搜索结果会包含相关信息和来源链接，你可以基于这些信息来回答用户的问题
 
 工作流程:
 1. 理解用户兴趣：
@@ -68,8 +75,53 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
     volcanoMessages.push({ role: 'user', content: prompt });
     console.log('处理消息:', { systemPrompt: SYSTEM_PROMPT, messages: volcanoMessages });
 
+    // 检查是否是搜索请求（从用户直接发送）
+    const searchMatch = prompt.match(/<search>(.*?)<\/search>/i);
+    if (searchMatch) {
+      const searchQuery = searchMatch[1];
+
+      try {
+        const searchResult = await tavilyClient.search(searchQuery, 5, 'advanced');
+
+        // 格式化搜索结果
+        let formattedResult = `🔍 **搜索结果**\n\n`;
+
+        // 显示清晰的摘要
+        if (searchResult.answer) {
+          formattedResult += `📋 **摘要**：${searchResult.answer}\n\n`;
+        }
+
+        // 列出关键资源
+        formattedResult += `📚 **相关资源**\n\n`;
+
+        // 限制只显示前5条结果
+        const topResults = searchResult.results.slice(0, 5);
+        topResults.forEach((result, index) => {
+          // 提取关键信息，避免过长内容
+          const keyInfo = result.content
+            .replace(/\n+/g, '\n') // 保留有意义的换行
+            .replace(/\s+/g, ' ') // 合并连续空格
+            .trim()
+            .substring(0, 150); // 限制关键信息长度
+
+          formattedResult += `${index + 1}. **${result.title}**\n`;
+          formattedResult += `   🔗 ${result.url}\n`;
+          formattedResult += `   💡 ${keyInfo}...\n`;
+          formattedResult += `\n`;
+        });
+
+        yield formattedResult;
+        return;
+      } catch (err) {
+        console.error('Tavily搜索失败:', err);
+        yield '搜索失败：无法获取相关信息，请稍后重试。';
+        return;
+      }
+    }
+
     //存储响应块
     const chunkQueue: string[] = [];
+    const fullResponse: string[] = [];
     let isDone = false;
     let error: Error | null = null;
 
@@ -83,6 +135,7 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
             console.log('收到模型响应块:', chunk);
             if (chunk && chunk.trim()) {
               chunkQueue.push(chunk);
+              fullResponse.push(chunk);
             }
           },
           onComplete: () => {
@@ -130,6 +183,51 @@ async function* volcanoModelResponse(prompt: string, history: any[] = []): Async
 
     if (error) {
       throw error;
+    }
+
+    // 检查模型响应是否包含搜索请求
+    const fullResponseText = fullResponse.join('');
+    const modelSearchMatch = fullResponseText.match(/<search>(.*?)<\/search>/i);
+
+    if (modelSearchMatch) {
+      const searchQuery = modelSearchMatch[1];
+      yield '\n\n正在搜索相关信息...\n\n';
+
+      try {
+          const searchResult = await tavilyClient.search(searchQuery, 5, 'advanced');
+
+          // 格式化搜索结果
+          let formattedResult = `🔍 **搜索结果**\n\n`;
+
+          // 显示清晰的摘要
+          if (searchResult.answer) {
+            formattedResult += `📋 **摘要**：${searchResult.answer}\n\n`;
+          }
+
+          // 列出关键资源
+          formattedResult += `📚 **相关资源**\n\n`;
+
+          // 限制只显示前5条结果
+          const topResults = searchResult.results.slice(0, 5);
+          topResults.forEach((result, index) => {
+            // 提取关键信息，避免过长内容
+            const keyInfo = result.content
+              .replace(/\n+/g, '\n') // 保留有意义的换行
+              .replace(/\s+/g, ' ') // 合并连续空格
+              .trim()
+              .substring(0, 150); // 限制关键信息长度
+
+            formattedResult += `${index + 1}. **${result.title}**\n`;
+            formattedResult += `   🔗 ${result.url}\n`;
+            formattedResult += `   💡 ${keyInfo}...\n`;
+            formattedResult += `\n`;
+          });
+
+          yield formattedResult;
+        } catch (err) {
+          console.error('Tavily搜索失败:', err);
+          yield '搜索失败：无法获取相关信息，请稍后重试。';
+        }
     }
   } catch (error) {
     console.error('调用火山云模型时出错:', error);
@@ -192,7 +290,7 @@ export const get = async ({
         chunks.push(chunk);
       }
 
-      const fullResponse = chunks.join('');
+      const fullResponse = chunks.join('').replace(/<search>(.*?)<\/search>/gi, '');
 
       if (conversationId) {
         try {
