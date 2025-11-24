@@ -1,37 +1,105 @@
-# Modern.js App
+# 兴趣教练助手
 
-## Setup
+兴趣教练助手是一款基于AI的对话应用，通过集成火山引擎模型，为用户提供个性化的兴趣指导和目标设定服务。用户可以与AI兴趣教练进行自然语言对话，获取专业的建议和支持。
 
-Install the dependencies:
+## 项目结构
+
+```
+├── api/                    # BFF API目录
+│   └── lambda/             # 服务端函数
+│       ├── chat.ts         # 聊天API实现
+│       ├── hello.ts        # 示例API
+│       └── volcanoClient.ts # 火山引擎客户端
+├── src/                    # 前端源码
+│   ├── routes/             # 路由和页面组件
+│   │   ├── index.css       # 样式文件
+│   │   ├── layout.tsx      # 布局组件
+│   │   └── page.tsx        # 主聊天页面
+│   ├── modern-app-env.d.ts # 环境类型定义
+│   └── modern.runtime.ts   # 运行时配置
+├── package.json            # 项目依赖和脚本
+├── modern.config.ts        # Modern.js配置
+└── tsconfig.json           # TypeScript配置
+```
+
+## 技术栈
+
+- **前端框架**: React 18.3.1
+- **构建工具**: Modern.js 2.69.0
+- **后端集成**: Modern.js BFF (Backend For Frontend)
+- **类型系统**: TypeScript 5.7.3
+- **代码规范**: Biome 1.9.4
+- **API集成**: 火山引擎AI模型
+- **数据存储**: localStorage
+
+## 实现功能
+
+### 1. 智能对话系统
+- 基于火山引擎模型的AI对话能力
+- 兴趣目标设定和指导
+- 上下文感知的多轮对话
+
+### 2. 用户体验优化
+- 打字机效果，提供流畅的响应体验
+- 加载状态指示器
+- 消息自动滚动到底部
+- 响应式设计支持
+
+### 3. 本地存储管理
+- 聊天历史持久化存储
+- 最大消息数量限制（50条）
+- 聊天历史清除功能
+
+### 4. 错误处理机制
+- API调用错误捕获
+- 用户友好的错误提示
+- 输入验证
+
+## 如何启动
+
+### 前置要求
+- Node.js >= 16.18.1
+- pnpm包管理器
+
+### 安装依赖
 
 ```bash
 pnpm install
 ```
 
-## Get Started
-
-Start the dev server:
+### 启动开发服务器
 
 ```bash
 pnpm dev
 ```
 
-Enable optional features or add a new entry:
+服务器启动后，可以通过 http://localhost:8081 访问应用。
 
-```bash
-pnpm new
-```
-
-Build the app for production:
+### 构建生产版本
 
 ```bash
 pnpm build
 ```
 
-Preview the production build locally:
+### 本地预览生产版本
 
 ```bash
 pnpm serve
 ```
 
-For more information, see the [Modern.js documentation](https://modernjs.dev/en).
+## 项目难点
+
+### 1. 前端状态管理和UI协调
+- 解决了多对话框同时显示的问题
+- 确保打字机效果与加载状态的平滑过渡
+- 管理复杂的异步消息流状态
+
+### 2. 流式响应处理
+- 实现了从服务器到客户端的流式数据传输
+- 前端逐字符渲染，提供良好的用户体验
+- 处理异步生成器和响应队列
+
+### 3. 本地存储管理
+- 优化localStorage使用，防止存储空间过大
+- 处理序列化和反序列化错误
+- 实现消息历史的安全清理机制
