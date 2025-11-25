@@ -1,6 +1,7 @@
 # 兴趣教练助手
 
 兴趣教练助手是一款基于Modern.js实现的对话应用，通过集成火山引擎模型，为用户提供个性化的兴趣指导。用户可以与AI兴趣教练进行自然语言对话，获取专业的建议和支持。
+详细技术文档：https://ccn9meyo3qfi.feishu.cn/wiki/OMUiwBuh8igx8pkJ4jdcmVRYnhg?from=from_copylink
 
 ## 项目结构
 
