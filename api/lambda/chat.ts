@@ -2,7 +2,8 @@ import { interestCoachClient, VolcanoMessage } from './volcanoClient';
 import {
   createConversation,
   getConversationById,
-  updateConversation
+  updateConversation,
+  deleteConversation
 } from './mongodb/conversationService';
 import { tavilyClient } from './tavilyClient';
 
@@ -333,7 +334,7 @@ export const get = async ({
   }
 };
 
-// 处理POST
+//处理POST
 export const post = async ({
   query,
   data,
@@ -354,5 +355,44 @@ export const post = async ({
     },
     data: undefined as never
   });
+};
+
+//处理DELETE
+export const del = async ({
+  query,
+}: RequestOption<{ conversationId?: string }, never>) => {
+  console.log('=== DELETE handler 被调用 ===');
+  console.log('Query params:', query);
+
+  try {
+    const conversationId = query?.conversationId || '';
+
+    if (!conversationId) {
+      return {
+        type: 'error',
+        error: '缺少有效的conversationId参数',
+      };
+    }
+
+    const deleted = await deleteConversation(conversationId);
+
+    if (deleted) {
+      return {
+        type: 'success',
+        message: '对话已成功删除',
+      };
+    } else {
+      return {
+        type: 'error',
+        error: '对话不存在或删除失败',
+      };
+    }
+  } catch (error) {
+    console.error('删除对话时出错:', error);
+    return {
+      type: 'error',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 };
 

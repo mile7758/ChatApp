@@ -70,6 +70,10 @@ const ChatApp = () => {
 
         if (savedConversations) {
           parsedConversations = JSON.parse(savedConversations) as Conversation[];
+          parsedConversations = parsedConversations.map(conv => ({
+            ...conv,
+            isTyping: false
+          }));
           setConversations(parsedConversations);
         }
 
@@ -95,15 +99,15 @@ const ChatApp = () => {
   }, []);
 
   useEffect(() => {
-    if (conversations.length > 0) {
-      try {
-        localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
-        if (currentConversationId) {
-          localStorage.setItem(STORAGE_KEY_CURRENT_CONVERSATION, currentConversationId);
-        }
-      } catch (error) {
-        console.error('保存对话历史失败:', error);
+    try {
+      localStorage.setItem(STORAGE_KEY_CONVERSATIONS, JSON.stringify(conversations));
+      if (currentConversationId) {
+        localStorage.setItem(STORAGE_KEY_CURRENT_CONVERSATION, currentConversationId);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_CURRENT_CONVERSATION);
       }
+    } catch (error) {
+      console.error('保存对话历史失败:', error);
     }
   }, [conversations, currentConversationId]);
 
@@ -190,7 +194,8 @@ const ChatApp = () => {
         return {
           ...conv,
           lastMessage: message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          isTyping: conv.isTyping // 保留当前的 isTyping 状态
         };
       }
       return conv;
@@ -202,7 +207,8 @@ const ChatApp = () => {
       if (conv.conversationId === conversationId) {
         return {
           ...conv,
-          title
+          title,
+          isTyping: conv.isTyping // 保留当前的 isTyping 状态
         };
       }
       return conv;
@@ -416,12 +422,23 @@ const ChatApp = () => {
     }
   };
 
-  const deleteConversation = (conversationId: string) => {
+  const deleteConversation = async (conversationId: string) => {
     if (window.confirm('确定要删除这个对话吗？')) {
-      setConversations(prev => prev.filter(conv => conv.conversationId !== conversationId));
-      if (currentConversationId === conversationId) {
-        setCurrentConversationId('');
-        setMessages([]);
+      try {
+        // 调用后端DELETE接口删除MongoDB中的对话
+        await fetch(`/api/chat?conversationId=${conversationId}`, {
+          method: 'DELETE',
+        });
+
+        // 更新本地状态
+        setConversations(prev => prev.filter(conv => conv.conversationId !== conversationId));
+        if (currentConversationId === conversationId) {
+          setCurrentConversationId('');
+          setMessages([]);
+        }
+      } catch (error) {
+        console.error('删除对话失败:', error);
+        alert('删除对话时出错，请稍后重试');
       }
     }
   };
